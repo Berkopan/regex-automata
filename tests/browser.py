@@ -22,9 +22,10 @@ def mount(page):
     page.evaluate('''async sources => {
       const url = text => URL.createObjectURL(new Blob([text], {type:'text/javascript'}));
       const engine = url(sources.engine);
-      const graph = url(sources.graph.replace("'./automata.js'", JSON.stringify(engine)));
-      await import(url(sources.app.replace("'./automata.js'",JSON.stringify(engine)).replace("'./graph.js'",JSON.stringify(graph))));
-    }''', {name: (ROOT / f'src/{file}.js').read_text(encoding='utf-8') for name, file in [('engine', 'automata'), ('graph', 'graph'), ('app', 'app')]})
+      const i18n = url(sources.i18n);
+      const graph = url(sources.graph.replace("'./i18n.js'", JSON.stringify(i18n)).replace("'./automata.js'", JSON.stringify(engine)));
+      await import(url(sources.app.replace("'./i18n.js'", JSON.stringify(i18n)).replace("'./automata.js'",JSON.stringify(engine)).replace("'./graph.js'",JSON.stringify(graph))));
+    }''', {name: (ROOT / f'src/{file}.js').read_text(encoding='utf-8') for name, file in [('i18n', 'i18n'), ('engine', 'automata'), ('graph', 'graph'), ('app', 'app')]})
 
 
 class BrowserTests(unittest.TestCase):
@@ -149,18 +150,160 @@ class BrowserTests(unittest.TestCase):
         expect(self.page.locator('#step-title')).to_have_text('Kabul edildi')
         expect(self.page.locator('#input-progress')).to_have_text('0 / 0 karakter')
 
-    def test_edit_during_play_invalidates_and_cancels_timer(self):
+    def remember_graph(self):
+        self.page.evaluate("window.originalNodes = [...document.querySelectorAll('#automaton .state')]")
+        return self.page.locator('#automaton').get_attribute('viewBox')
+
+    def assert_graph_retained(self, view):
+        self.assertTrue(self.page.evaluate("window.originalNodes.every((n,i)=>n===document.querySelectorAll('#automaton .state')[i])"))
+        self.assertEqual(self.page.locator('#automaton').get_attribute('viewBox'), view)
+        expect(self.page.locator('#automaton')).to_be_visible()
+
+    def test_edit_during_play_keeps_machine_and_cancels_timer(self):
         self.prepare()
+        self.page.locator('#zoom-in').click()
+        view = self.remember_graph()
         self.page.locator('#speed').select_option('4')
         self.page.locator('#play').click()
+        self.page.wait_for_function('document.getElementById("seek").value !== "0"')
         self.page.locator('#sample-text').fill('abba')
-        self.page.wait_for_timeout(450)
-        expect(self.page.locator('#play')).to_be_disabled()
-        expect(self.page.locator('#automaton')).to_be_hidden()
-        self.prepare()
+        self.page.wait_for_timeout(500)
+        self.assert_graph_retained(view)
+        expect(self.page.locator('#play')).to_be_enabled()
+        expect(self.page.locator('#play')).to_have_attribute('aria-pressed', 'false')
+        self.assertEqual(self.page.locator('#seek').input_value(), '0')
         expect(self.page.locator('#input-progress')).to_have_text('0 / 4 karakter')
+        expect(self.page.locator('.travel-dot')).to_have_count(0)
+        expect(self.page.locator('#history-rows tr')).to_have_count(1)
         self.seek('end')
         expect(self.page.locator('#step-title')).to_have_text('Reddedildi')
+
+    def test_input_edits_after_result_accept_new_text_without_prepare(self):
+        for kind in ['dfa', 'nfa']:
+            with self.subTest(kind=kind):
+                self.prepare('a*', 'aa', kind)
+                self.seek('end')
+                view = self.remember_graph()
+                for text, outcome in [('', 'Kabul edildi'), ('b', 'Reddedildi'), ('aaa', 'Kabul edildi')]:
+                    self.page.locator('#sample-text').fill(text)
+                    self.assert_graph_retained(view)
+                    expect(self.page.locator('#play')).to_be_enabled()
+                    self.seek('end')
+                    expect(self.page.locator('#step-title')).to_have_text(outcome)
+
+    def test_invalid_input_keeps_machine_and_recovers_without_compile(self):
+        self.prepare()
+        view = self.remember_graph()
+        self.page.locator('#sample-text').fill('a' * 257)
+        self.assert_graph_retained(view)
+        expect(self.page.locator('#form-error')).to_be_visible()
+        expect(self.page.locator('#play')).to_be_disabled()
+        expect(self.page.locator('#export-svg')).to_be_enabled()
+        self.page.locator('[data-language=en]').click()
+        expect(self.page.locator('#form-error')).to_contain_text('256 characters')
+        expect(self.page.locator('#step-title')).to_have_text('Please correct the input text.')
+        self.page.locator('#sample-text').fill('abb')
+        self.assert_graph_retained(view)
+        expect(self.page.locator('#form-error')).to_be_hidden()
+        expect(self.page.locator('#play')).to_be_enabled()
+        self.seek('end')
+        expect(self.page.locator('#step-title')).to_have_text('Accepted')
+
+    def test_initial_invalid_input_does_not_discard_valid_machine(self):
+        self.page.locator('#sample-text').fill('a' * 257)
+        self.page.locator('#prepare').click()
+        expect(self.page.locator('#automaton')).to_be_visible()
+        expect(self.page.locator('#play')).to_be_disabled()
+        view = self.remember_graph()
+        self.page.locator('#sample-text').fill('abb')
+        self.assert_graph_retained(view)
+        self.seek('end')
+        expect(self.page.locator('#step-title')).to_have_text('Kabul edildi')
+
+    def test_english_interface_and_preserved_inspector_and_step(self):
+        self.prepare()
+        self.page.locator('#next').click()
+        expect(self.page.locator('#current-states')).to_have_text('{q₁}')
+        self.page.locator('.state[data-state="1"]').click()
+        self.page.locator('#zoom-in').click()
+        view = self.remember_graph()
+        self.page.locator('[data-language=en]').click()
+        self.assert_graph_retained(view)
+        expect(self.page.locator('html')).to_have_attribute('lang', 'en')
+        expect(self.page.locator('#prepare')).to_have_text('Prepare simulation')
+        expect(self.page.locator('#step-title')).to_have_text('Read “a”')
+        expect(self.page.locator('#state-inspector')).to_contain_text('NFA subsets')
+        expect(self.page.locator('#current-states')).to_have_text('{q₁}')
+        expect(self.page.locator('#automaton > title')).to_contain_text('states')
+        expect(self.page.locator('.state[data-state="0"]')).to_have_attribute('aria-label', 'q₀, start')
+        self.assertEqual(self.page.locator('#seek').input_value(), '1')
+        self.assertEqual(self.page.locator('#pattern').input_value(), '(a|b)*abb')
+        self.assertTrue(self.page.locator('#minimize').is_checked())
+        self.page.screenshot(path=str(OUTPUT / 'desktop-en.png'), full_page=True)
+        self.page.locator('[data-language=tr]').click()
+        self.assert_graph_retained(view)
+        expect(self.page.locator('#step-title')).to_have_text('“a” karakterini oku')
+        self.page.screenshot(path=str(OUTPUT / 'desktop-tr.png'), full_page=True)
+
+    def test_saved_language_is_restored_on_fresh_initialization(self):
+        # about:blank has no storage origin. This Storage test double verifies
+        # saving/restoring preferences without a live HTTP server.
+        self.page.evaluate("""() => {
+          const values = new Map();
+          Object.defineProperty(window, 'localStorage', { configurable: true,
+            value: { getItem: key => values.get(key) ?? null, setItem: (key,value) => values.set(key, String(value)) } });
+        }""")
+        self.page.locator('[data-language=en]').click()
+        self.assertEqual(self.page.evaluate("localStorage.getItem('regex-automata.language')"), 'en')
+        mount(self.page)
+        expect(self.page.locator('html')).to_have_attribute('lang', 'en')
+        expect(self.page.locator('#play')).to_have_text('Start simulation')
+        self.page.locator('[data-language=tr]').click()
+        mount(self.page)
+        expect(self.page.locator('html')).to_have_attribute('lang', 'tr')
+
+    def test_blocked_storage_does_not_break_language_switch(self):
+        self.page.evaluate("Object.defineProperty(window,'localStorage',{configurable:true,get(){throw new Error('blocked');}})")
+        mount(self.page)
+        self.page.locator('[data-language=en]').click()
+        self.prepare('a', 'a')
+        self.seek('end')
+        expect(self.page.locator('#step-title')).to_have_text('Accepted')
+
+    def test_localized_error_survives_language_change(self):
+        self.page.locator('#pattern').fill('a(')
+        self.page.locator('#prepare').click()
+        self.page.locator('[data-language=en]').click()
+        expect(self.page.locator('#form-error')).to_have_text('The closing ) of the group is missing. (character 2)')
+        self.page.locator('[data-language=tr]').click()
+        expect(self.page.locator('#form-error')).to_contain_text('Grubu kapatan ) eksik.')
+
+    def test_english_epsilon_and_language_switch_during_play(self):
+        self.page.locator('[data-language=en]').click()
+        self.prepare('ab|ac', 'ac', 'nfa')
+        self.page.locator('#next').click()
+        expect(self.page.locator('#step-title')).to_have_text('ε transition · no character consumed')
+        expect(self.page.locator('#step-detail')).to_contain_text('Previously active states are kept')
+        view = self.remember_graph()
+        self.page.locator('#speed').select_option('4')
+        self.page.locator('#play').click()
+        self.page.locator('[data-language=tr]').click()
+        self.assert_graph_retained(view)
+        expect(self.page.locator('#step-title')).to_have_text('Kabul edildi', timeout=6000)
+
+    def test_cream_palette_remains_light_in_dark_os_mode(self):
+        self.page.emulate_media(color_scheme='dark')
+        self.assertEqual(self.page.locator('html').evaluate('el=>getComputedStyle(el).backgroundColor'), 'rgb(246, 242, 233)')
+        self.assertEqual(self.page.locator('.diagram-area').evaluate('el=>getComputedStyle(el).backgroundColor'), 'rgb(246, 242, 233)')
+        self.assertEqual(self.page.locator('#pattern').evaluate('el=>getComputedStyle(el).backgroundColor'), 'rgb(251, 248, 241)')
+
+    def test_mobile_english_layout(self):
+        self.page.set_viewport_size({'width': 390, 'height': 844})
+        self.page.locator('[data-language=en]').click()
+        self.prepare()
+        self.assertTrue(self.page.evaluate('document.documentElement.scrollWidth <= window.innerWidth'))
+        expect(self.page.locator('[data-language=tr]')).to_be_visible()
+        self.page.screenshot(path=str(OUTPUT / 'mobile-en.png'), full_page=True)
 
     def test_syntax_error_has_position_and_disables_stale_machine(self):
         self.prepare()

@@ -1,11 +1,12 @@
 import { stateLabel, symbolsLabel } from './automata.js';
+import { t } from './i18n.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const R = 23;
 const svgStyle = `
   .edge-line,.start-line{fill:none;stroke:#555b60;stroke-width:1.45;stroke-linecap:round;stroke-linejoin:round}
-  .edge-label{font:16px ui-monospace,SFMono-Regular,Consolas,monospace;fill:#30363a;paint-order:stroke;stroke:#fff;stroke-width:6;stroke-linejoin:round;text-anchor:middle}
-  .state .outer{fill:#fff;stroke:#30363a;stroke-width:1.65}
+  .edge-label{font:16px ui-monospace,SFMono-Regular,Consolas,monospace;fill:#30363a;paint-order:stroke;stroke:#f6f2e9;stroke-width:6;stroke-linejoin:round;text-anchor:middle}
+  .state .outer{fill:#fbf8f1;stroke:#30363a;stroke-width:1.65}
   .state .inner{fill:none;stroke:#30363a;stroke-width:1.4;pointer-events:none}
   .state-label{font:italic 23px Georgia,'Times New Roman',serif;fill:#252b30;text-anchor:middle;dominant-baseline:central;pointer-events:none}
   .state{cursor:pointer;outline:none}
@@ -173,7 +174,7 @@ export class GraphView {
   render(machine) {
     this.clear(); this.machine = machine;
     const { positions, edges } = layout(machine);
-    this.svg.append(element('title', {}, `${machine.kind.toUpperCase()}: ${machine.states.length} durum. Çift çemberler kabul durumlarıdır.`));
+    this.svg.append(element('title', {}, t('graph.title', { kind: machine.kind.toUpperCase(), count: machine.states.length })));
     this.svg.append(element('style', {}, svgStyle));
     const defs = element('defs');
     for (const [id, fill] of [['arrow', '#555b60'], ['arrow-active', '#245a8c']]) {
@@ -195,7 +196,7 @@ export class GraphView {
     this.scene.append(element('path', { d: `M ${start.x - 64} ${start.y} L ${start.x - R - 2} ${start.y}`, class: 'start-line', 'marker-end': 'url(#arrow)' }));
     for (const state of machine.states) {
       const p = positions.get(state.id);
-      const group = element('g', { class: 'state', transform: `translate(${p.x} ${p.y})`, tabindex: 0, role: 'button', 'aria-label': `${stateLabel(state.id)}${state.id === machine.start ? ', başlangıç' : ''}${state.accepting ? ', kabul durumu' : ''}${state.dead ? ', tuzak durum' : ''}`, 'data-state': state.id });
+      const group = element('g', { class: 'state', transform: `translate(${p.x} ${p.y})`, tabindex: 0, role: 'button', 'aria-label': stateLabel(state.id), 'data-state': state.id });
       group.append(element('title', {}, group.getAttribute('aria-label')));
       group.append(element('circle', { r: R, class: 'outer' }));
       if (state.accepting) group.append(element('circle', { r: R - 5, class: 'inner' }));
@@ -210,9 +211,24 @@ export class GraphView {
       });
       this.nodes.set(state.id, group); this.scene.append(group);
     }
+    this.localize();
     const box = this.scene.getBBox();
     this.bounds = [box.x - 34, box.y - 36, Math.max(box.width + 68, 250), Math.max(box.height + 72, 210)];
     this.fit();
+  }
+  localize() {
+    if (!this.machine || !this.nodes.size) return;
+    this.svg.querySelector('title').textContent = t('graph.title', {
+      kind: this.machine.kind.toUpperCase(), count: this.machine.states.length,
+    });
+    for (const state of this.machine.states) {
+      const label = stateLabel(state.id)
+        + (state.id === this.machine.start ? t('graph.start') : '')
+        + (state.accepting ? t('graph.final') : '')
+        + (state.dead ? t('graph.trap') : '');
+      const node = this.nodes.get(state.id);
+      node.setAttribute('aria-label', label); node.querySelector('title').textContent = label;
+    }
   }
   show(frame, { animate = false, duration = 350, onSettled = () => {} } = {}) {
     this.stopAnimation();
@@ -257,7 +273,7 @@ export class GraphView {
     clone.setAttribute('xmlns', NS); clone.setAttribute('viewBox', this.bounds.join(' '));
     clone.setAttribute('width', String(Math.ceil(this.bounds[2]))); clone.setAttribute('height', String(Math.ceil(this.bounds[3])));
     clone.removeAttribute('class'); clone.removeAttribute('style');
-    const background = element('rect', { x: this.bounds[0], y: this.bounds[1], width: this.bounds[2], height: this.bounds[3], fill: 'white' });
+    const background = element('rect', { x: this.bounds[0], y: this.bounds[1], width: this.bounds[2], height: this.bounds[3], fill: '#f6f2e9' });
     clone.insertBefore(background, clone.querySelector('g'));
     const blob = new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob), a = document.createElement('a');

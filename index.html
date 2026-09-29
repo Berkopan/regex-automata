@@ -3,131 +3,131 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="Düzenli ifadelerden NFA ve DFA oluşturun; durum geçişlerini karakter karakter izleyin. Sade, etkileşimli bir otomat laboratuvarı.">
-  <meta name="theme-color" content="#ffffff">
-  <title>Regex → Otomat</title>
+  <meta name="description" content="Düzenli ifadelerden NFA ve DFA oluşturun; durum geçişlerini karakter karakter izleyin. Sade, etkileşimli bir otomat laboratuvarı." data-i18n-content="page.description">
+  <meta name="theme-color" content="#f6f2e9">
+  <title data-i18n="page.title">Regex → Otomat</title>
   <link rel="stylesheet" href="./styles.css">
   <script type="module" src="./src/app.js"></script>
 </head>
 <body>
-  <a class="skip-link" href="#workspace">Simülasyona geç</a>
+  <a class="skip-link" href="#workspace" data-i18n="nav.skip">Simülasyona geç</a>
   <header class="page-header">
     <div>
-      <h1>Regex <span aria-hidden="true">→</span> Otomat</h1>
-      <p>Düzenli ifadeler, sonlu otomatalar ve adım adım sözcük işleme.</p>
+      <h1 data-i18n-html="page.heading">Regex <span aria-hidden="true">→</span> Otomat</h1>
+      <p data-i18n="page.subtitle">Düzenli ifadeler, sonlu otomatalar ve adım adım sözcük işleme.</p>
     </div>
-    <span class="header-note">Etkileşimli ders notu</span>
-  </header>
+    <div class="header-actions"><span class="header-note" data-i18n="page.note">Etkileşimli ders notu</span>
+  <div class="language-switch" role="group" aria-label="Arayüz dili" data-i18n-aria-label="language.label"><button type="button" data-language="tr" lang="tr" aria-label="Türkçe" aria-pressed="true">TR</button><button type="button" data-language="en" lang="en" aria-label="English" aria-pressed="false">EN</button></div></div></header>
   <main id="workspace" class="workspace">
-    <aside class="controls" aria-label="Makine ve simülasyon ayarları">
+    <aside class="controls" aria-label="Makine ve simülasyon ayarları" data-i18n-aria-label="setup.aria">
       <form id="setup-form" novalidate>
-        <h2>Makineyi tanımla</h2>
-        <label for="pattern">Düzenli ifade <span class="math">r</span></label>
+        <h2 data-i18n="setup.title">Makineyi tanımla</h2>
+        <label for="pattern" data-i18n-html="setup.pattern">Düzenli ifade <span class="math">r</span></label>
         <input id="pattern" name="pattern" class="code-input" type="text" value="(a|b)*abb" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="pattern-help form-error">
-        <p id="pattern-help" class="field-note">Örneğin <code>(a|b)*abb</code> veya <code>a(b|c)+</code>.</p>
-        <label for="sample-text">İşlenecek metin <span class="math">w</span></label>
+        <p id="pattern-help" class="field-note" data-i18n-html="setup.example">Örneğin <code>(a|b)*abb</code> veya <code>a(b|c)+</code>.</p>
+        <label for="sample-text" data-i18n-html="setup.input">İşlenecek metin <span class="math">w</span></label>
         <textarea id="sample-text" name="text" class="code-input" rows="2" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="text-help">aabb</textarea>
-        <p id="text-help" class="field-note">Metnin tamamı eşleştirilir. Boşluklar da birer karakterdir. Boş bırakmak, ε girdisidir.</p>
+        <p id="text-help" class="field-note" data-i18n="setup.inputHelp">Metnin tamamı eşleştirilir. Boşluklar da birer karakterdir. Boş bırakmak, ε girdisidir.</p>
         <fieldset>
-          <legend>Makine türü</legend>
+          <legend data-i18n="setup.kind">Makine türü</legend>
           <div class="radio-row">
             <label><input id="kind-dfa" type="radio" name="kind" value="dfa" checked> DFA</label>
             <label><input id="kind-nfa" type="radio" name="kind" value="nfa"> NFA <span class="muted">(ε)</span></label>
           </div>
-          <label id="minimize-label" class="check-label"><input id="minimize" type="checkbox" checked> Eşdeğer DFA durumlarını birleştir</label>
+          <label id="minimize-label" class="check-label"><input id="minimize" type="checkbox" checked> <span data-i18n="setup.minimize">Eşdeğer DFA durumlarını birleştir</span></label>
         </fieldset>
-        <button id="prepare" type="submit" class="primary full-width">Simülasyonu hazırla</button>
+        <button id="prepare" type="submit" class="primary full-width" data-i18n="setup.prepare">Simülasyonu hazırla</button>
         <p id="form-error" class="error" role="alert" hidden></p>
       </form>
       <section class="playback" aria-labelledby="playback-title">
-        <h2 id="playback-title">Simülasyon</h2>
+        <h2 id="playback-title" data-i18n="playback.title">Simülasyon</h2>
         <button id="play" class="full-width play-button" type="button" disabled>Simülasyonu başlat</button>
         <div class="step-buttons">
-          <button id="previous" type="button" title="Önceki adım (←)" disabled>← Geri</button>
-          <button id="next" type="button" title="Sonraki adım (→)" disabled>İleri →</button>
-          <button id="reset" type="button" title="Başa dön (Home)" disabled>Başa dön</button>
+          <button id="previous" type="button" title="Önceki adım (←)" disabled data-i18n="playback.previous" data-i18n-title="playback.previousTitle">← Geri</button>
+          <button id="next" type="button" title="Sonraki adım (→)" disabled data-i18n="playback.next" data-i18n-title="playback.nextTitle">İleri →</button>
+          <button id="reset" type="button" title="Başa dön (Home)" disabled data-i18n="playback.reset" data-i18n-title="playback.resetTitle">Başa dön</button>
         </div>
         <div class="speed-row">
-          <label for="speed">Oynatma hızı</label>
-          <select id="speed"><option value="0.5">0,5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select>
+          <label for="speed" data-i18n="playback.speed">Oynatma hızı</label>
+          <select id="speed"><option value="0.5" data-i18n="playback.half">0,5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select>
         </div>
-        <p class="field-note keyboard-note"><kbd>Space</kbd> oynat / duraklat &nbsp; <kbd>←</kbd> <kbd>→</kbd> adım</p>
+        <p class="field-note keyboard-note" data-i18n-html="playback.keys"><kbd>Space</kbd> oynat / duraklat   <kbd>←</kbd> <kbd>→</kbd> adım</p>
       </section>
-      <section class="reference" aria-label="Örnekler ve sözdizimi">
-        <label for="examples">Bir örnek dene</label>
+      <section class="reference" aria-label="Örnekler ve sözdizimi" data-i18n-aria-label="reference.aria">
+        <label for="examples" data-i18n="examples.title">Bir örnek dene</label>
         <select id="examples" class="full-width">
-          <option value="">Örnek seçin…</option>
-          <option value="suffix">Sonu abb ile biten sözcükler</option>
-          <option value="branch">NFA’da birden fazla etkin yol</option>
-          <option value="empty">Boş metin ve ε geçişleri</option>
-          <option value="class">Karakter sınıfları ve tekrar</option>
-          <option value="reject">DFA’da tuzak durum</option>
+          <option value="" data-i18n="examples.choose">Örnek seçin…</option>
+          <option value="suffix" data-i18n="examples.suffix">Sonu abb ile biten sözcükler</option>
+          <option value="branch" data-i18n="examples.branch">NFA’da birden fazla etkin yol</option>
+          <option value="empty" data-i18n="examples.empty">Boş metin ve ε geçişleri</option>
+          <option value="class" data-i18n="examples.class">Karakter sınıfları ve tekrar</option>
+          <option value="reject" data-i18n="examples.reject">DFA’da tuzak durum</option>
         </select>
         <details class="syntax">
-          <summary>Desteklenen sözdizimi</summary>
+          <summary data-i18n="syntax.title">Desteklenen sözdizimi</summary>
           <dl class="syntax-list">
-            <dt><code>ab</code></dt><dd>Ardışık okuma</dd>
-            <dt><code>a|b</code></dt><dd>Birleşim: a veya b</dd>
-            <dt><code>(ab)</code></dt><dd>Gruplama</dd>
-            <dt><code>a* a+ a?</code></dt><dd>0+, 1+ veya 0–1 tekrar</dd>
-            <dt><code>a{2,4}</code></dt><dd>2–4 tekrar; {2} ve {2,} de geçerli</dd>
-            <dt><code>[abc] [a-z]</code></dt><dd>Karakter kümesi / aralığı</dd>
-            <dt><code>\d \w \s</code></dt><dd>ASCII rakam, sözcük, boşluk sınıfları</dd>
-            <dt><code>\* \n \t</code></dt><dd>Gerçek *, satır sonu, sekme</dd>
-            <dt><code>ε</code></dt><dd>Boş sözcük; boş ifade de aynı anlama gelir</dd>
-            <dt><code>∅</code></dt><dd>Boş dil: hiçbir sözcüğü kabul etmez</dd>
+            <dt><code>ab</code></dt><dd data-i18n="syntax.item1">Ardışık okuma</dd>
+            <dt><code>a|b</code></dt><dd data-i18n="syntax.item2">Birleşim: a veya b</dd>
+            <dt><code>(ab)</code></dt><dd data-i18n="syntax.item3">Gruplama</dd>
+            <dt><code>a* a+ a?</code></dt><dd data-i18n="syntax.item4">0+, 1+ veya 0–1 tekrar</dd>
+            <dt><code>a{2,4}</code></dt><dd data-i18n="syntax.item5">2–4 tekrar; {2} ve {2,} de geçerli</dd>
+            <dt><code>[abc] [a-z]</code></dt><dd data-i18n="syntax.item6">Karakter kümesi / aralığı</dd>
+            <dt><code>\d \w \s</code></dt><dd data-i18n="syntax.item7">ASCII rakam, sözcük, boşluk sınıfları</dd>
+            <dt><code>\* \n \t</code></dt><dd data-i18n="syntax.item8">Gerçek *, satır sonu, sekme</dd>
+            <dt><code>ε</code></dt><dd data-i18n="syntax.item9">Boş sözcük; boş ifade de aynı anlama gelir</dd>
+            <dt><code>∅</code></dt><dd data-i18n="syntax.item10">Boş dil: hiçbir sözcüğü kabul etmez</dd>
           </dl>
-          <p class="field-note">Bu bir JavaScript regex editörü değildir. Joker <code>.</code>, negatif sınıflar, çapalar, bayraklar, lookaround ve geri başvurular desteklenmez. Gerçek ε / ∅ karakteri için <code>\ε</code> / <code>\∅</code> yazın.</p>
-          <p class="field-note">Öncelik: tekrar → ardışıklık → birleşim. Semboller Unicode kod noktalarıdır. <code>\s</code> yalnızca boşluk, \t, \n, \r, \f ve \v içerir.</p>
+          <p class="field-note" data-i18n-html="syntax.limits">Bu bir JavaScript regex editörü değildir. Joker <code>.</code>, negatif sınıflar, çapalar, bayraklar, lookaround ve geri başvurular desteklenmez. Gerçek ε / ∅ karakteri için <code>\ε</code> / <code>\∅</code> yazın.</p>
+          <p class="field-note" data-i18n-html="syntax.precedence">Öncelik: tekrar → ardışıklık → birleşim. Semboller Unicode kod noktalarıdır. <code>\s</code> yalnızca boşluk, \t, \n, \r, \f ve \v içerir.</p>
         </details>
       </section>
     </aside>
-    <section class="lab" aria-label="Otomat ve işleme adımları">
+    <section class="lab" aria-label="Otomat ve işleme adımları" data-i18n-aria-label="lab.aria">
       <div class="diagram-header">
-        <div><h2>Durum diyagramı</h2><p id="machine-meta" class="muted">Henüz bir makine oluşturulmadı.</p></div>
-        <div class="graph-tools" role="group" aria-label="Diyagram görünümü">
-          <button id="zoom-out" type="button" title="Uzaklaştır (−)" aria-label="Uzaklaştır" disabled>−</button>
-          <button id="zoom-in" type="button" title="Yakınlaştır (+)" aria-label="Yakınlaştır" disabled>+</button>
-          <button id="fit" type="button" title="Diyagramı alana sığdır (0)" disabled>Sığdır</button>
-          <button id="export-svg" type="button" title="Diyagramı SVG olarak kaydet" disabled>SVG ↓</button>
+        <div><h2 data-i18n="diagram.title">Durum diyagramı</h2><p id="machine-meta" class="muted">Henüz bir makine oluşturulmadı.</p></div>
+        <div class="graph-tools" role="group" aria-label="Diyagram görünümü" data-i18n-aria-label="diagram.tools">
+          <button id="zoom-out" type="button" title="Uzaklaştır (−)" aria-label="Uzaklaştır" disabled data-i18n-title="diagram.outTitle" data-i18n-aria-label="diagram.out">−</button>
+          <button id="zoom-in" type="button" title="Yakınlaştır (+)" aria-label="Yakınlaştır" disabled data-i18n-title="diagram.inTitle" data-i18n-aria-label="diagram.in">+</button>
+          <button id="fit" type="button" title="Diyagramı alana sığdır (0)" disabled data-i18n-title="diagram.fitTitle" data-i18n="diagram.fit">Sığdır</button>
+          <button id="export-svg" type="button" title="Diyagramı SVG olarak kaydet" disabled data-i18n-title="diagram.export">SVG ↓</button>
         </div>
       </div>
       <div class="diagram-area">
         <div id="empty-diagram" class="empty-diagram">
           <p class="empty-equation">r <span>→</span> M</p>
-          <h3>Önce makineyi oluşturun.</h3>
-          <p>Soldaki ifadeyi ve metni düzenleyin,<br>ardından “Simülasyonu hazırla”ya basın.</p>
+          <h3 data-i18n="empty.heading">Önce makineyi oluşturun.</h3>
+          <p data-i18n-html="empty.instructions">Soldaki ifadeyi ve metni düzenleyin,<br>ardından “Simülasyonu hazırla”ya basın.</p>
         </div>
-        <svg id="automaton" role="group" aria-label="Sonlu otomat durum diyagramı. Durumların ayrıntılarını tıklayarak veya Enter ile açabilirsiniz." tabindex="0" hidden></svg>
+        <svg id="automaton" role="group" aria-label="Sonlu otomat durum diyagramı. Durumların ayrıntılarını tıklayarak veya Enter ile açabilirsiniz." tabindex="0" hidden data-i18n-aria-label="diagram.aria"></svg>
       </div>
       <div class="graph-legend">
-        <span><i class="legend-state" aria-hidden="true"></i> Durum</span>
-        <span><i class="legend-state final" aria-hidden="true"></i> Kabul durumu</span>
-        <span><i class="legend-state active" aria-hidden="true"></i> Etkin durum</span>
-        <span class="pan-hint">Sürükle: taşı · +/−: yakınlaştır</span>
+        <span><i class="legend-state" aria-hidden="true"></i> <span data-i18n="legend.state">Durum</span></span>
+        <span><i class="legend-state final" aria-hidden="true"></i> <span data-i18n="legend.final">Kabul durumu</span></span>
+        <span><i class="legend-state active" aria-hidden="true"></i> <span data-i18n="legend.active">Etkin durum</span></span>
+        <span class="pan-hint" data-i18n="diagram.pan">Sürükle: taşı · +/−: yakınlaştır</span>
       </div>
       <p id="construction-note" class="construction-note">Başlangıç oku ilk durumu, çift çember kabul durumunu gösterir.</p>
       <p id="state-inspector" class="state-inspector">Bir durumun ayrıntısını görmek için dairesine tıklayın.</p>
       <section class="execution" aria-labelledby="tape-heading">
-        <div class="section-heading"><h2 id="tape-heading">Girdi bandı</h2><span id="input-progress" class="muted">—</span></div>
-        <div id="tape" class="tape" aria-label="Girdi bandı"><span class="muted tape-placeholder">Makine hazırlandığında metin burada görünecek.</span></div>
-        <div class="scrubber-row"><label for="seek" class="sr-only">Simülasyon adımı</label><input id="seek" type="range" min="0" max="1" value="0" disabled><output id="step-counter" for="seek">Adım —</output></div>
+        <div class="section-heading"><h2 id="tape-heading" data-i18n="tape.title">Girdi bandı</h2><span id="input-progress" class="muted">—</span></div>
+        <div id="tape" class="tape" aria-label="Girdi bandı" data-i18n-aria-label="tape.aria"><span class="muted tape-placeholder">Makine hazırlandığında metin burada görünecek.</span></div>
+        <div class="scrubber-row"><label for="seek" class="sr-only" data-i18n="playback.seek">Simülasyon adımı</label><input id="seek" type="range" min="0" max="1" value="0" disabled><output id="step-counter" for="seek">Adım —</output></div>
         <div id="step-report" class="step-report">
           <h3 id="step-title">Simülasyon henüz hazır değil.</h3>
           <p id="step-equation" class="equation">—</p>
           <p id="step-detail" class="muted">Her adımda okunan karakteri, izlenen geçişleri ve etkin durumları burada göreceksiniz.</p>
-          <p class="current-state-line"><span>Etkin durumlar</span> <strong id="current-states" class="equation">—</strong></p>
+          <p class="current-state-line"><span data-i18n="execution.active">Etkin durumlar</span> <strong id="current-states" class="equation">—</strong></p>
         </div>
         <div id="live-status" class="sr-only" aria-live="polite" aria-atomic="true"></div>
       </section>
-      <section id="tables" class="tables" aria-label="Makinenin ayrıntıları" hidden>
-        <details><summary>Geçiş tablosu ve makine tanımı</summary><p id="formal-definition" class="equation formal-definition"></p><div class="table-scroll"><table><thead><tr><th scope="col">Durum</th><th scope="col">Sembol</th><th scope="col">Hedef</th></tr></thead><tbody id="transition-rows"></tbody></table></div><p class="field-note">→ başlangıç, * kabul. ε geçişi karakter tüketmez. DFA, gösterilen Σ alfabesi üzerinde tamdır; alfabe dışındaki bir karakter reddedilir.</p></details>
-        <details id="subset-details"><summary>DFA durumlarının NFA karşılıkları</summary><p id="subset-explanation" class="field-note"></p><div class="table-scroll"><table><thead><tr><th scope="col">DFA durumu</th><th scope="col">NFA durum kümesi / kümeleri</th></tr></thead><tbody id="subset-rows"></tbody></table></div></details>
-        <details><summary>Adım geçmişi</summary><p class="field-note">Bulunduğunuz adıma kadar son 12 kayıt. Bir adım numarasına tıklayarak o ana dönün; diğer adımlar için kaydırıcıyı kullanın.</p><div class="table-scroll"><table><thead><tr><th scope="col">Adım</th><th scope="col">İşlem</th><th scope="col">Okunan</th><th scope="col">Etkin durumlar</th></tr></thead><tbody id="history-rows"></tbody></table></div></details>
+      <section id="tables" class="tables" aria-label="Makinenin ayrıntıları" hidden data-i18n-aria-label="tables.aria">
+        <details><summary data-i18n="tables.transitions">Geçiş tablosu ve makine tanımı</summary><p id="formal-definition" class="equation formal-definition"></p><div class="table-scroll"><table><thead><tr><th scope="col" data-i18n="tables.col11">Durum</th><th scope="col" data-i18n="tables.col12">Sembol</th><th scope="col" data-i18n="tables.col13">Hedef</th></tr></thead><tbody id="transition-rows"></tbody></table></div><p class="field-note" data-i18n="tables.note">→ başlangıç, * kabul. ε geçişi karakter tüketmez. DFA, gösterilen Σ alfabesi üzerinde tamdır; alfabe dışındaki bir karakter reddedilir.</p></details>
+        <details id="subset-details"><summary data-i18n="tables.subsets">DFA durumlarının NFA karşılıkları</summary><p id="subset-explanation" class="field-note"></p><div class="table-scroll"><table><thead><tr><th scope="col" data-i18n="tables.col21">DFA durumu</th><th scope="col" data-i18n="tables.col22">NFA durum kümesi / kümeleri</th></tr></thead><tbody id="subset-rows"></tbody></table></div></details>
+        <details><summary data-i18n="tables.history">Adım geçmişi</summary><p class="field-note" data-i18n="tables.historyNote">Bulunduğunuz adıma kadar son 12 kayıt. Bir adım numarasına tıklayarak o ana dönün; diğer adımlar için kaydırıcıyı kullanın.</p><div class="table-scroll"><table><thead><tr><th scope="col" data-i18n="tables.col31">Adım</th><th scope="col" data-i18n="tables.col32">İşlem</th><th scope="col" data-i18n="tables.col33">Okunan</th><th scope="col" data-i18n="tables.col34">Etkin durumlar</th></tr></thead><tbody id="history-rows"></tbody></table></div></details>
       </section>
     </section>
   </main>
-  <footer>Regex → Thompson ε-NFA → altküme DFA → isteğe bağlı minimizasyon.<span>Tümü tarayıcınızda çalışır.</span></footer>
-  <noscript><p class="error">Bu simülasyonun çalışması için JavaScript etkin olmalı.</p></noscript>
+  <footer data-i18n-html="footer.text">Regex → Thompson ε-NFA → altküme DFA → isteğe bağlı minimizasyon.<span>Tümü tarayıcınızda çalışır.</span></footer>
+  <noscript><p class="error">Bu simülasyon için JavaScript etkin olmalı. / JavaScript is required to run this simulation.</p></noscript>
 </body>
 </html>
