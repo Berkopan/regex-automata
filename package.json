@@ -1,0 +1,12 @@
+{
+  "name": "regex-automata",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Textbook-style regex, NFA and DFA simulator. No runtime dependencies.",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "start": "python3 -m http.server 8080"
+  },
+  "engines": { "node": ">=20" }
+}
