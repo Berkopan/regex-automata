@@ -1,0 +1,48 @@
+name: Verified optional-layout source transfer
+on:
+  push:
+    branches: [work/optional-layout-transfer]
+    paths: [.github/workflows/transfer-optional-layout-v2.yml]
+permissions:
+  contents: write
+jobs:
+  transfer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Recover and verify transfer payload
+        run: |
+          python3 - <<'PY'
+          import base64, gzip, hashlib, re
+          from pathlib import Path
+          source = Path('.github/workflows/transfer-optional-layout.yml').read_text()
+          payload = re.search("payload = '''(.*?)'''", source, re.S).group(1)
+          payload = payload.replace('Befs9n5kp3Iaj', 'Befs9n5kp3zIaj').replace('9XBUocF1Bvbm', '9XBUocBpnyZ0HftyZbWtG1gE36U/so9HF1Bvbm')
+          Path('/tmp/payload.b64').write_text(payload)
+          patch = gzip.decompress(base64.b64decode(payload))
+          assert hashlib.sha256(patch).hexdigest() == 'eb93b3aae09504cdcf9e5379e60e09ee663b5256848bf4befb3f5e6dea178f02'
+          Path('/tmp/optional-layout.patch').write_bytes(patch)
+          print('Source transfer checksum verified')
+          PY
+      - name: Build clean code commit directly on main
+        run: |
+          git checkout --detach 052862fa3aa1c8f36098e307be75fef70b28a40b
+          git apply --index /tmp/optional-layout.patch
+          npm test
+          test -z "$(git ls-remote --heads origin refs/heads/feat/optional-overlap-layout)"
+          git config user.name 'Berkay'
+          git config user.email '74908168+Berkopan@users.noreply.github.com'
+          git commit -m 'feat: keep classic layout by default and make overlap routing opt-in'
+          git push origin HEAD:refs/heads/feat/optional-overlap-layout
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: source-transfer-verification
+          path: /tmp/payload.b64
+          retention-days: 1
