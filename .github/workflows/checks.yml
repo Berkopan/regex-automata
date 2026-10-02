@@ -1,0 +1,37 @@
+name: Checks
+
+on:
+  push:
+    branches: [main, 'fix/dfa-edge-routing']
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm test
+      - name: Package preview and regression tests
+        uses: actions/upload-artifact@v4
+        with:
+          name: regex-automata-preview
+          retention-days: 7
+          path: |
+            index.html
+            styles.css
+            src/
+            tests/
+            package.json
+            README.md
+            README.tr.md
