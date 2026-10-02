@@ -5,6 +5,7 @@ const NS = 'http://www.w3.org/2000/svg';
 const R = 23;
 const svgStyle = `
   .edge-line,.start-line{fill:none;stroke:#555b60;stroke-width:1.45;stroke-linecap:round;stroke-linejoin:round}
+  .label-leader{fill:none;stroke:#92999e;stroke-width:1;stroke-dasharray:3 3;pointer-events:none}
   .edge-label{font:16px ui-monospace,SFMono-Regular,Consolas,monospace;fill:#30363a;paint-order:stroke;stroke:#f6f2e9;stroke-width:6;stroke-linejoin:round;text-anchor:middle}
   .state .outer{fill:#fbf8f1;stroke:#30363a;stroke-width:1.65}
   .state .inner{fill:none;stroke:#30363a;stroke-width:1.4;pointer-events:none}
@@ -28,8 +29,29 @@ function element(tag, attrs = {}, text = null) {
   return el;
 }
 
-/** Deterministic layered layout. Back edges use separate return arcs, not
- * force simulation, so the diagram never moves while input is being read. */
+// Keep measurement and rendering in sync, including Unicode labels.
+const displayLabel = label => [...label].length > 28 ? [...label].slice(0, 26).join('') + '…' : label;
+const labelWidth = label => [...displayLabel(label)].reduce((width, ch) => width + (ch.codePointAt(0) > 0x2fff ? 17 : 10), 0) + 12;
+
+// Rounded orthogonal routes leave/enter states horizontally. Their vertical
+// sections stay in inter-column gutters, never through a stack of states.
+function roundedRoute(points) {
+  let d = `M ${points[0].x} ${points[0].y}`;
+  for (let i = 1; i < points.length - 1; i++) {
+    const a = points[i - 1], b = points[i], c = points[i + 1];
+    const ab = Math.hypot(b.x - a.x, b.y - a.y), bc = Math.hypot(c.x - b.x, c.y - b.y);
+    const r = Math.min(16, ab / 2, bc / 2);
+    if (!ab || !bc) continue;
+    const before = { x: b.x + (a.x - b.x) * r / ab, y: b.y + (a.y - b.y) * r / ab };
+    const after = { x: b.x + (c.x - b.x) * r / bc, y: b.y + (c.y - b.y) * r / bc };
+    d += ` L ${before.x} ${before.y} Q ${b.x} ${b.y} ${after.x} ${after.y}`;
+  }
+  const end = points.at(-1);
+  return d + ` L ${end.x} ${end.y}`;
+}
+
+/** Deterministic layered layout; no force simulation or runtime dependency.
+ * State, loop, label, and return-route clearance is reserved before routing. */
 export function layout(machine) {
   const merged = new Map();
   for (const edge of machine.edges) {
@@ -86,39 +108,114 @@ export function layout(machine) {
       layers[r].sort((a, b) => score(a) - score(b) || a - b); refresh();
     }
   }
-  const spacing = machine.states.length <= 7 ? 155 : 102;
-  const pos = new Map();
-  layers.forEach((layer, r) => layer.forEach((id, i) => pos.set(id, { x: 76 + r * spacing, y: 140 + (i - (layer.length - 1) / 2) * 104 })));
-  const ys = [...pos.values()].map(p => p.y), minY = Math.min(...ys), maxY = Math.max(...ys);
-  const lanes = { top: [], bottom: [], side: [] };
-  function lane(side, start, end) {
-    const a = Math.min(start, end), b = Math.max(start, end);
-    let n = 0;
-    while ((lanes[side][n] ?? []).some(([lo, hi]) => a <= hi && b >= lo)) n++;
-    if (!lanes[side][n]) lanes[side][n] = [];
-    lanes[side][n].push([a, b]); return n;
+  // Do not squeeze diagrams at the old seven-state threshold. Reserve a
+  // gutter per non-local endpoint and enough room for the displayed labels.
+  const gutters = layers.map(() => ({ left: 0, right: 0 }));
+  const ports = new Map();
+  const port = (id, side, vertical) => {
+    const key = `${id}:${side}:${vertical}`;
+    const list = ports.get(key) ?? [];
+    const value = { id, side, vertical, index: list.length, list };
+    list.push(value); ports.set(key, list); return value;
+  };
+  const routes = new Map();
+  for (const edge of edges) {
+    const from = rank.get(edge.from), to = rank.get(edge.to);
+    if (edge.from === edge.to || to === from + 1) continue;
+    const same = from === to, back = to < from;
+    const sourceSide = back ? 'left' : 'right', targetSide = back || same ? 'right' : 'left';
+    const vertical = back || same ? 1 : -1;
+    const sourceSlot = gutters[from][sourceSide]++;
+    const targetSlot = same ? sourceSlot : gutters[to][targetSide]++;
+    routes.set(edge, {
+      same, back, sourceSlot, targetSlot,
+      source: port(edge.from, sourceSide, vertical),
+      target: port(edge.to, targetSide, same ? -vertical : vertical),
+    });
   }
+  const columnX = [76];
+  const reach = (r, side) => 54 + Math.max(0, gutters[r][side] - 1) * 18;
+  const loopWidth = layers.map(layer => Math.max(0, ...edges.filter(e => e.from === e.to && layer.includes(e.from)).map(e => labelWidth(e.label))));
+  for (let r = 1; r < count; r++) {
+    const width = Math.max(0, ...edges.filter(e => rank.get(e.from) === r - 1 && rank.get(e.to) === r).map(e => labelWidth(e.label)));
+    columnX[r] = columnX[r - 1] + Math.max(160, reach(r - 1, 'right') + reach(r, 'left') + 36, width + R * 2 + 32, (loopWidth[r - 1] + loopWidth[r]) / 2 + 28);
+  }
+  const pos = new Map();
+  layers.forEach((layer, r) => layer.forEach((id, i) => pos.set(id, { x: columnX[r], y: 140 + (i - (layer.length - 1) / 2) * 160 })));
+  const loopDirection = id => {
+    const layer = layers[rank.get(id)];
+    return layer.indexOf(id) > (layer.length - 1) / 2 ? 1 : -1;
+  };
+  const obstacles = [...pos.values()].map(p => ({ left: p.x - R - 8, right: p.x + R + 8, top: p.y - R - 8, bottom: p.y + R + 8 }));
+  for (const edge of edges.filter(e => e.from === e.to)) {
+    const p = pos.get(edge.from), direction = loopDirection(edge.from);
+    obstacles.push({ left: p.x - Math.max(38, labelWidth(edge.label) / 2), right: p.x + Math.max(38, labelWidth(edge.label) / 2), top: p.y + (direction < 0 ? -105 : 0), bottom: p.y + (direction > 0 ? 105 : 0) });
+  }
+  const lanes = { top: [], bottom: [] };
+  function lane(side, start, end, sourceY, targetY) {
+    const left = Math.min(start, end), right = Math.max(start, end);
+    const relevant = obstacles.filter(o => o.left <= right && o.right >= left);
+    const top = side === 'top';
+    let y = top ? Math.min(sourceY, targetY, ...relevant.map(o => o.top)) - 40
+      : Math.max(sourceY, targetY, ...relevant.map(o => o.bottom)) + 40;
+    while (lanes[side].some(l => left <= l.right && right >= l.left && Math.abs(y - l.y) < 44)) y += top ? -44 : 44;
+    lanes[side].push({ left, right, y }); return y;
+  }
+  const endpoint = port => {
+    const center = pos.get(port.id), sign = port.side === 'right' ? 1 : -1;
+    const offset = port.vertical * (port.list.length === 1 ? 12 : 6 + 15 * port.index / (port.list.length - 1));
+    return { x: center.x + sign * Math.sqrt(R * R - offset * offset), y: center.y + offset };
+  };
+  const candidates = new Map();
   for (const edge of edges) {
     const a = pos.get(edge.from), b = pos.get(edge.to);
     if (edge.from === edge.to) {
-      edge.d = `M ${a.x - 15} ${a.y - 18} C ${a.x - 58} ${a.y - 90}, ${a.x + 58} ${a.y - 90}, ${a.x + 15} ${a.y - 18}`;
-      edge.labelX = a.x; edge.labelY = a.y - 81;
+      const direction = loopDirection(edge.from);
+      edge.d = `M ${a.x - 15} ${a.y + direction * 18} C ${a.x - 58} ${a.y + direction * 90}, ${a.x + 58} ${a.y + direction * 90}, ${a.x + 15} ${a.y + direction * 18}`;
+      candidates.set(edge, [{ x: a.x, y: a.y + direction * 81 + (direction > 0 ? 14 : 0) }]);
     } else if (rank.get(edge.to) === rank.get(edge.from) + 1) {
       const sx = a.x + R, tx = b.x - R, mid = (sx + tx) / 2;
       edge.d = `M ${sx} ${a.y} C ${mid} ${a.y}, ${mid} ${b.y}, ${tx} ${b.y}`;
-      edge.labelX = mid; edge.labelY = (a.y + b.y) / 2 - 12;
-    } else if (a.x === b.x) {
-      const side = a.x + 86 + lane('side', a.y, b.y) * 40;
-      edge.d = `M ${a.x + R} ${a.y} C ${side} ${a.y}, ${side} ${b.y}, ${b.x + R} ${b.y}`;
-      edge.labelX = (a.x + R + 3 * side) / 4 + 12; edge.labelY = (a.y + b.y) / 2;
+      const choices = [];
+      for (const t of [0.5, 0.35, 0.65, 0.22, 0.78]) {
+        const u = 1 - t;
+        const x = u ** 3 * sx + 3 * u * t * mid + t ** 3 * tx;
+        const y = (u ** 3 + 3 * u * u * t) * a.y + (3 * u * t * t + t ** 3) * b.y;
+        choices.push({ x, y: y - 12 }, { x, y: y + 24 });
+      }
+      candidates.set(edge, choices);
     } else {
-      const isBack = b.x < a.x;
-      const n = lane(isBack ? 'bottom' : 'top', a.x, b.x);
-      const y = isBack ? maxY + 106 + n * 53 : minY - 125 - n * 53;
-      const sy = a.y + (isBack ? R : -R), ty = b.y + (isBack ? R : -R);
-      edge.d = `M ${a.x} ${sy} C ${a.x} ${y}, ${b.x} ${y}, ${b.x} ${ty}`;
-      edge.labelX = (a.x + b.x) / 2; edge.labelY = (sy + ty + 6 * y) / 8 + (isBack ? 21 : -12);
+      const route = routes.get(edge), source = endpoint(route.source), target = endpoint(route.target);
+      const sx = a.x + (route.source.side === 'right' ? 1 : -1) * (54 + route.sourceSlot * 18);
+      const tx = b.x + (route.target.side === 'right' ? 1 : -1) * (54 + route.targetSlot * 18);
+      if (route.same) {
+        edge.d = roundedRoute([source, { x: sx, y: source.y }, { x: sx, y: target.y }, target]);
+        candidates.set(edge, [{ x: sx + labelWidth(edge.label) / 2 + 8, y: (source.y + target.y) / 2 + 5 }]);
+      } else {
+        const y = lane(route.back ? 'bottom' : 'top', sx, tx, source.y, target.y);
+        edge.d = roundedRoute([source, { x: sx, y: source.y }, { x: sx, y }, { x: tx, y }, { x: tx, y: target.y }, target]);
+        candidates.set(edge, [0.5, 0.35, 0.65, 0.22, 0.78].map(t => ({ x: sx + (tx - sx) * t, y: y + (route.back ? 24 : -12) })));
+      }
     }
+  }
+  // Place labels after routes. Loop labels have the fewest options, so reserve
+  // them first; other labels can move along their own edge, not over a state.
+  const occupied = [...pos.values()].map(p => ({ left: p.x - R - 8, right: p.x + R + 8, top: p.y - R - 8, bottom: p.y + R + 8 }));
+  const overlap = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+  const box = (p, width) => ({ left: p.x - width / 2, right: p.x + width / 2, top: p.y - 20, bottom: p.y + 6 });
+  for (const edge of [...edges].sort((a, b) => candidates.get(a).length - candidates.get(b).length)) {
+    const width = labelWidth(edge.label), choices = candidates.get(edge);
+    let chosen = choices.find(p => !occupied.some(other => overlap(box(p, width), other)));
+    // Dense/long-label cases have a deterministic free band outside the graph.
+    // Keep a leader to the actual edge rather than silently covering a node.
+    if (!chosen) {
+      const anchor = choices[0];
+      chosen = { ...anchor };
+      while (occupied.some(other => overlap(box(chosen, width), other))) chosen.y -= 30;
+      edge.labelLeader = `M ${anchor.x} ${anchor.y + 8} L ${chosen.x} ${chosen.y + 8}`;
+    }
+    edge.labelX = chosen.x; edge.labelY = chosen.y;
+    occupied.push(box(chosen, width));
   }
   return { positions: pos, edges };
 }
@@ -184,10 +281,11 @@ export class GraphView {
     this.svg.append(defs);
     this.scene = element('g'); this.svg.append(this.scene);
     for (const edge of edges) {
-      const group = element('g', { class: 'transition' });
+      const group = element('g', { class: 'transition', 'data-from': edge.from, 'data-to': edge.to });
       const path = element('path', { d: edge.d, class: 'edge-line', 'marker-end': 'url(#arrow)' });
       group.append(element('title', {}, `${stateLabel(edge.from)} → ${stateLabel(edge.to)}: ${edge.label}`));
-      const display = edge.label.length > 28 ? `${edge.label.slice(0, 26)}…` : edge.label;
+      const display = displayLabel(edge.label);
+      if (edge.labelLeader) group.append(element('path', { d: edge.labelLeader, class: 'label-leader' }));
       group.append(path, element('text', { class: 'edge-label', x: edge.labelX, y: edge.labelY }, display));
       this.scene.append(group);
       edge.ids.forEach(id => this.paths.set(id, { path, group }));

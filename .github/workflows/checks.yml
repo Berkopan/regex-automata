@@ -2,7 +2,7 @@ name: Checks
 
 on:
   push:
-    branches: [main, 'fix/dfa-edge-routing']
+    branches: [main]
   pull_request:
 
 permissions:
@@ -21,8 +21,25 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm test
-      - name: Package preview and regression tests
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Engine, localization, and graph geometry tests
+        run: npm test
+      - name: Install browser test tools
+        run: |
+          python -m pip install playwright==1.57.0
+          python -m playwright install --with-deps chromium
+      - name: Chromium interaction and real SVG geometry tests
+        run: python -m unittest discover -s tests -p '*browser.py' -v
+      - name: Upload browser screenshots and SVGs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-results
+          retention-days: 7
+          path: test-results/
+      - name: Package tested site
         uses: actions/upload-artifact@v4
         with:
           name: regex-automata-preview
@@ -31,7 +48,44 @@ jobs:
             index.html
             styles.css
             src/
-            tests/
-            package.json
-            README.md
-            README.tr.md
+      - name: Verify immutable PR preview
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          PREVIEW_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          python - <<'PY'
+          import os
+          from playwright.sync_api import sync_playwright, expect
+          url = f"https://raw.githack.com/{os.environ['GITHUB_REPOSITORY']}/{os.environ['PREVIEW_SHA']}/index.html"
+          with sync_playwright() as p:
+              browser = p.chromium.launch()
+              page = browser.new_page(viewport={'width': 1612, 'height': 1000})
+              errors = []
+              page.on('pageerror', lambda error: errors.append(str(error)))
+              # Documented automation cookie skips only the hosting service's
+              # HTML confirmation screen, not application security or auth.
+              page.context.add_cookies([{'name': '__Http-phish', 'value': '1', 'domain': 'raw.githack.com', 'path': '/', 'secure': True, 'httpOnly': True}])
+              response = page.goto(url, wait_until='networkidle', timeout=90000)
+              assert response.ok, f'Preview HTTP {response.status}'
+              page.locator('[data-language=en]').click()
+              page.locator('#pattern').fill('((a|b)*abb)|(abb(a|b)*)')
+              page.locator('#sample-text').fill('aabb')
+              page.locator('#prepare').click()
+              expect(page.locator('.state')).to_have_count(8)
+              assert page.locator('.transition[data-from="2"][data-to="3"] .edge-line').get_attribute('d').count('Q') > 0
+              page.locator('#speed').select_option('4')
+              page.locator('#play').click()
+              expect(page.locator('#step-title')).to_have_text('Accepted', timeout=7000)
+              assert not errors, errors
+              page.screenshot(path='test-results/live-pr-preview.png')
+              browser.close()
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+              summary.write(f'## PR preview\n[Open this tested commit]({url})\n\nServed by raw.githack; main and the existing GitHub Pages site are unchanged.\n')
+          PY
+      - name: Upload live preview screenshot
+        if: github.event_name == 'pull_request' && success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-pr-preview
+          retention-days: 7
+          path: test-results/live-pr-preview.png
