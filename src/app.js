@@ -4,6 +4,7 @@ import { t, setLanguage, getLanguage, translatePage, translateError } from './i1
 
 const $ = id => document.getElementById(id);
 const form = $('setup-form'), pattern = $('pattern'), input = $('sample-text');
+const avoidOverlap = $('avoid-overlap');
 let session = null, step = 0, playing = false, timer = null, renderToken = 0;
 let selectedState = null, lastError = null;
 const graph = new GraphView($('automaton'), inspectState);
@@ -23,6 +24,7 @@ function controls() {
   $('reset').disabled = !ready || (step === 0 && !playing);
   $('seek').disabled = !ready;
   for (const id of ['zoom-in', 'zoom-out', 'fit', 'export-svg']) $(id).disabled = !session;
+  avoidOverlap.disabled = !session;
   $('minimize').disabled = kind() === 'nfa';
   $('minimize-label').classList.toggle('is-disabled', kind() === 'nfa');
 }
@@ -37,7 +39,8 @@ function clearError() {
 }
 function invalidate() {
   renderToken++; pause(); session = null; step = 0;
-  selectedState = null; graph.clear(); clearError(); renderEmpty(); controls();
+  selectedState = null; avoidOverlap.checked = false;
+  graph.clear(); clearError(); renderEmpty(); controls();
 }
 function renderEmpty() {
   $('automaton').setAttribute('hidden', ''); $('empty-diagram').hidden = false; $('tables').hidden = true;
@@ -263,12 +266,24 @@ function prepare(event) {
     const machine = compile(pattern.value, { kind: kind(), minimize: $('minimize').checked });
     session = { machine, trace: null }; step = 0; selectedState = null;
     $('automaton').removeAttribute('hidden'); $('empty-diagram').hidden = true;
-    graph.render(machine); renderTables(); renderMachineInfo();
+    graph.render(machine, { avoidOverlap: avoidOverlap.checked }); renderTables(); renderMachineInfo();
     refreshInput();
   } catch (error) {
     invalidate(); showError(error, 'pattern', true);
   }
   controls();
+}
+// Change only presentation. Preserve the machine, trace, current step and
+// inspected state; settle in-flight animation before replacing its SVG paths.
+function changeLayout() {
+  if (!session) return;
+  const wasPlaying = playing;
+  renderToken++; pause();
+  graph.render(session.machine, { avoidOverlap: avoidOverlap.checked });
+  if (selectedState !== null) graph.nodes.get(selectedState)?.classList.add('is-selected');
+  if (session.trace) showStep(); else showInvalidInput();
+  playing = wasPlaying && Boolean(session.trace) && step < session.trace.frames.length - 1;
+  controls(); if (playing) schedule();
 }
 function changeLanguage(language, remember = true) {
   const wasPlaying = playing;
@@ -316,6 +331,7 @@ input.addEventListener('input', refreshInput);
 document.querySelectorAll('[data-language]').forEach(button =>
   button.addEventListener('click', () => changeLanguage(button.dataset.language)));
 for (const field of [$('kind-dfa'), $('kind-nfa'), $('minimize')]) field.addEventListener('change', invalidate);
+avoidOverlap.addEventListener('change', changeLayout);
 $('play').addEventListener('click', togglePlay);
 $('previous').addEventListener('click', () => jump(step - 1));
 $('next').addEventListener('click', () => jump(step + 1, true));
@@ -355,4 +371,5 @@ document.addEventListener('keydown', event => {
 });
 let savedLanguage = 'tr';
 try { savedLanguage = localStorage.getItem('regex-automata.language') || 'tr'; } catch { /* Optional persistence. */ }
+avoidOverlap.checked = false;
 changeLanguage(savedLanguage, false);

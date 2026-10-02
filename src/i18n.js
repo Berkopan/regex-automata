@@ -199,6 +199,14 @@ export const messages = {
     "Durum diyagramı",
     "State diagram"
   ],
+  "diagram.avoidOverlap": [
+    "Oklar veya durumlar üst üste geliyorsa açın",
+    "Enable if arrows or states overlap"
+  ],
+  "diagram.avoidOverlapHelp": [
+    "Daha geniş bir yerleşim kullanır. Kapatınca eski görünüme dönersiniz; simülasyon adımı değişmez.",
+    "Uses a roomier layout. Uncheck to restore the original view; your simulation step stays the same."
+  ],
   "diagram.tools": [
     "Diyagram görünümü",
     "Diagram view"
